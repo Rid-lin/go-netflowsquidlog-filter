@@ -1,3 +1,0 @@
-# github.com/subpop/go-ini v0.1.4
-## explicit
-github.com/subpop/go-ini

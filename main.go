@@ -2,23 +2,23 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
-
-	"github.com/subpop/go-ini"
 )
 
 var year, inFile, outFile, configFile string
 
 // Config ..
 type Config struct {
-	ProcessingDirection string   `ini:"processing_direction"`
-	UserFinder          string   `ini:"user_finder"`
-	SubNet              []string `ini:"subnets"`
-	IgnorList           []string `ini:"ignor"`
+	ProcessingDirection string   `json:"processing_direction"`
+	UserFinder          string   `json:"user_finder"`
+	SubNet              []string `json:"subnets"`
+	IgnorList           []string `json:"ignor"`
 }
 
 var config *Config
@@ -27,30 +27,17 @@ var config *Config
 var err error
 
 func init() {
-	flag.StringVar(&configFile, "c", "./go-netflowsquidlog-filter.ini", "configuration file")
+	flag.StringVar(&configFile, "c", "./go-netflowsquidlog-filter.json", "configuration file")
 	flag.StringVar(&inFile, "in", "./1.log", "Temp log file for filtering")
 	flag.StringVar(&outFile, "out", "./access.log", "Log file for further processing by the analyzer")
 	flag.Parse()
 }
 
 func main() {
-	var data []byte
-
-	f, err := os.Open(configFile)
+	err := config.loadConfigFromFile(configFile)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(500)
-	}
-
-	defer f.Close()
-	_, err2 := bufio.NewReader(f).Read(data)
-	if err2 != nil {
-		fmt.Println(err)
-		os.Exit(500)
-	}
-
-	if err := ini.Unmarshal(data, &config); err != nil {
-		fmt.Println(err)
 	}
 
 	file, err := os.Open(inFile)
@@ -60,21 +47,39 @@ func main() {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	fullFileHandling(scanner)
-
-	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+	err2 := fullFileHandling(scanner)
+	if err2 != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
 }
 
+func (config *Config) loadConfigFromFile(configFile string) error {
+	plan, _ := ioutil.ReadFile(configFile)
+	// var data interface{}
+	err := json.Unmarshal(plan, &config)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func fullFileHandling(scanner *bufio.Scanner) error {
+	:TO_SCAN
 	for scanner.Scan() {
 		line := scanner.Text()
+		for _, ignorItem := range IgnorList{
+		if strings.Contains(line, ignorItem)
+	}
 		valueArray := strings.Fields(line)
 
 		// TODO тут должна находится функция обработки строк лог-фала
 		fmt.Println(valueArray)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
 	}
 
 	return nil
