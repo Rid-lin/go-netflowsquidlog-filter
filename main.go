@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/sasbury/mini"
+	"github.com/subpop/go-ini"
 )
 
 var year, inFile, outFile, configFile string
@@ -21,27 +21,36 @@ type Config struct {
 	IgnorList           []string `ini:"ignor"`
 }
 
-var config *mini.Config
-var cfg *Config
+var config *Config
+
+// var cfg *Config
 var err error
 
 func init() {
-	flag.StringVar(&configFile, "c", "go-netflowsquidlog-filter.ini", "configuration file")
-	flag.StringVar(&inFile, "in", "", "Temp log file for filtering")
-	flag.StringVar(&outFile, "out", "/var/log/squid/access2.log", "Log file for further processing by the analyzer")
+	flag.StringVar(&configFile, "c", "./go-netflowsquidlog-filter.ini", "configuration file")
+	flag.StringVar(&inFile, "in", "./1.log", "Temp log file for filtering")
+	flag.StringVar(&outFile, "out", "./access.log", "Log file for further processing by the analyzer")
 	flag.Parse()
 }
 
 func main() {
-	config, err = mini.LoadConfiguration(configFile)
+	var data []byte
+
+	f, err := os.Open(configFile)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(500)
-	} else {
-		cfg.ProcessingDirection = config.String("processing_direction", "both")
-		cfg.UserFinder = config.String("user_finder", "")
-		cfg.SubNet = config.Strings("subnets")
-		cfg.IgnorList = config.Strings("ignor")
+	}
+
+	defer f.Close()
+	_, err2 := bufio.NewReader(f).Read(data)
+	if err2 != nil {
+		fmt.Println(err)
+		os.Exit(500)
+	}
+
+	if err := ini.Unmarshal(data, &config); err != nil {
+		fmt.Println(err)
 	}
 
 	file, err := os.Open(inFile)
