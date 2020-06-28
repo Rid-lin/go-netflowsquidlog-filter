@@ -1,0 +1,9 @@
+# github.com/ghodss/yaml v1.0.0
+## explicit
+github.com/ghodss/yaml
+# github.com/tkanos/gonfig v0.0.0-20181112185242-896f3d81fadf
+## explicit
+github.com/tkanos/gonfig
+# gopkg.in/yaml.v2 v2.3.0
+## explicit
+gopkg.in/yaml.v2
