@@ -1,9 +1,3 @@
-# github.com/ghodss/yaml v1.0.0
+# github.com/sasbury/mini v0.0.0-20181226232755-dc74af49394b
 ## explicit
-github.com/ghodss/yaml
-# github.com/tkanos/gonfig v0.0.0-20181112185242-896f3d81fadf
-## explicit
-github.com/tkanos/gonfig
-# gopkg.in/yaml.v2 v2.3.0
-## explicit
-gopkg.in/yaml.v2
+github.com/sasbury/mini
