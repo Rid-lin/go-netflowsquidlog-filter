@@ -1,6 +1,6 @@
-# go-netflow2squid
+# go-netflowsquidlog-filter
 
-## Transpiler from netflow v5 format to default squid log format
+## filter of logs received from the program go-netflow2squid
 
 ### How To Build
 
@@ -8,40 +8,39 @@ If you do not have a golang, please use the [installation instruction](https://g
 
 and next
 
-    git clone https://github.com/Rid-lin/go-netflow2squid.git
-    cd go-netflow2squid
+    git clone https://github.com/Rid-lin/go-netflowsquidlog-filter.git
+    cd go-netflowsquidlog-filter
     make
 
 ### How to use
 
-    flow-cat ft-v05.YYYY-MM-DD.HHMMSS+Z | flow-print | go-netflow2squid > access_netflow.log
+    flow-cat ft-v05.YYYY-MM-DD.HHMMSS+Z | flow-print | go-netflow2squid > access_netflow_temp.log
+
+    go-netflowsquidlog-filter -с go-netflowsquidlog-filter.json -in access_netflow_temp.log > access_netflow.log
 
 After that, you need to use any **analyzer of squid** logs.
 
-### Thanks
-
-- [Translation of Squid documentation](http://break-people.ru)
-- [Very simple log format description](https://wiki.enchtex.info/doc/squidlogformat)
-
 -------------------------------------------------
 
-### Это транспилятор из формата netflow v5 в формат логов Squid по-умолчанию
+### Это фильтратор логов полученных отпрограммы go-netflow2squid
 
-### Как установить
+### Установка
 
 Если у Вас не установлен Golang, пожалуйста воспользуйтесь [инструкцией по установке](https://golang.org/doc/install)
 
 и далее
 
-    git clone https://github.com/Rid-lin/go-netflow2squid.git
-    cd go-netflow2squid
+    git clone https://github.com/Rid-lin/go-netflowsquidlog-filter.git
+    cd go-netflowsquidlog-filter
     make
 
 После этого нужно использовать любой **аналозатор логов Squid-а**.
 
 ### Как использовать
 
-    flow-cat ft-v05.YYYY-MM-DD.HHMMSS+Z | flow-print | go-netflow2squid > access_netflow.log
+    flow-cat ft-v05.YYYY-MM-DD.HHMMSS+Z | flow-print | go-netflow2squid > access_netflow_temp.log
+
+    go-netflowsquidlog-filter -с go-netflowsquidlog-filter.json -in access_netflow_temp.log > access_netflow.log
 
 ### Благодарности
 

@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -10,8 +11,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-// var year, inFile, outFile, configFile string
 
 // Config ..
 type Config struct {
@@ -21,19 +20,16 @@ type Config struct {
 	IgnorList           []string `json:"ignor"`
 }
 
-var config *Config
-
 var (
-	configFile = "go-netflowsquidlog-filter.json"
-	inFile     = "1.log"
-	// outFile    = "access.log"
+	inFile, configFile string
+	config             *Config
 )
 
 func init() {
-	// flag.StringVar(&configFile, "c", "go-netflowsquidlog-filter.json", "configuration file")
-	// flag.StringVar(&inFile, "in", "1.log", "Temp log file for filtering")
-	// flag.StringVar(&outFile, "out", "access.log", "Log file for further processing by the analyzer")
-	// flag.Parse()
+	flag.StringVar(&configFile, "c", "go-netflowsquidlog-filter.json", "configuration file")
+	flag.StringVar(&inFile, "in", "", "Temp log file for filtering")
+	// flag.StringVar(&outFile, "out", "", "Log file for further processing by the analyzer")
+	flag.Parse()
 }
 
 func main() {
@@ -71,51 +67,16 @@ func (cfg *Config) loadConfigFromFile(configFile string) error {
 }
 
 func (cfg *Config) fullFileHandling(scanner *bufio.Scanner) error {
-TO_SCAN:
 	for scanner.Scan() { // Проходим по всему файлу\экрану до конца
-		line := scanner.Text()                    // получем текст из линии
-		for _, ignorItem := range cfg.IgnorList { //проходим по списку исключения,
-			if strings.Contains(line, ignorItem) { //если линия содержит хотя бы один объект из списка,
-				continue TO_SCAN // то мы её игнорируем и переходим к следующей строке
-			}
+		line := scanner.Text() // получем текст из линии
+		line = cfg.removeIgnoringLine(line)
+		if line == "" {
+			continue
 		}
-		// исходная строка не содержит игнорируемых элементов
-		valueArray := strings.Fields(line) // разбиваем на поля через пробел
-		if len(valueArray) == 0 {          // проверяем длину строки, чтобы убедиться что строка нормально распарсилась\её формат
-			continue TO_SCAN
+		output := cfg.logFileFiltering(line)
+		if output != "" {
+			fmt.Println(output)
 		}
-
-		srcIP := valueArray[2]
-		srcPortStr := valueArray[3]
-		destIPPort := valueArray[6]
-		// srcPort := srcPortStr[10 : len(srcPortStr)-4]
-		srcPort := strings.Split(strings.Split(srcPortStr, ":")[1], "/")[0]
-		// DEBUG
-		if strings.Contains(line, "172.") {
-			fmt.Println("1")
-		}
-
-		for _, subNet := range config.SubNets {
-			ok, err := checkIP(subNet, srcIP)
-			if err != nil { // если ошибка, то следующая строка
-				continue TO_SCAN
-			}
-			if !ok && config.ProcessingDirection == "both" { // если адрес не принадлежит необходимой подсети и трафик считается в оба направления,
-				destIP := strings.Split(destIPPort, ":")[0]
-				destPort := strings.Split(destIPPort, ":")[1] //то проверяем адрес назначения
-				ok, err := checkIP(subNet, destIP)
-				if !ok || err != nil { // если адрес назначения не входит в проверяемую подсеть или проверка вызвала ошибку,
-					continue // то переходим к следующей подсети
-				}
-				//если адрес добрался сюда, значит он входит в подсеть и необходимо поменять адрес назначения и источника и послать это на печать
-				newSrcPortStr := strings.Split(srcPortStr, ":")[0] + "_REVERSED:" + destPort + "/" + strings.Split(srcPortStr, "/")[1]
-				line = fmt.Sprintf("%v %6v %v %v %v %v %v%v %v %v %v", valueArray[0], valueArray[1], destIP, newSrcPortStr, valueArray[4], valueArray[5], srcIP, srcPort, valueArray[7], valueArray[8], valueArray[9])
-			} else if !ok {
-				continue
-			}
-			fmt.Println(line)
-		}
-		fmt.Println("1")
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -123,6 +84,71 @@ TO_SCAN:
 	}
 
 	return nil
+}
+
+// Получает на вход строку в виде лога Squid по-умолчанию от программы
+// Проверяет принадлежность адреса источника указанным в конфиге подсетям
+// Если принадлежит, то возвращает строку не меняя её
+// Если не пренадлежит, проверяет в каком направлении считается трафик, если в оба (значение "both" параметра processing_direction)
+// 		то проверяет адрес получателя на напринадежность подсетям указанным в конфиге,
+// 		если принадлежит,
+// 			то меняет местами адреса получателя и источника
+// 		если не принадлежит,
+// 			то данная строка исключается (возвращается пустое значение)
+
+func (cfg *Config) logFileFiltering(line string) string {
+	valueArray := strings.Fields(line) // разбиваем на поля через пробел
+	if len(valueArray) == 0 {          // проверяем длину строки, чтобы убедиться что строка нормально распарсилась\её формат
+		return "" // если это не так то возвращаем ничего
+	}
+
+	srcIP := valueArray[2]
+	srcPortStr := valueArray[3]
+	destIPPort := valueArray[6]
+	srcPort := strings.Split(strings.Split(srcPortStr, ":")[1], "/")[0]
+
+	for _, subNet := range config.SubNets {
+		ok, err := checkIP(subNet, srcIP)
+		if err != nil { // если ошибка, то следующая строка
+			return "" //  то возвращаем ничего
+
+		}
+
+		if !ok { // если адрес не принадлежит необходимой подсети
+			if config.ProcessingDirection == "both" { // если трафик считается в оба направления,
+				destIP := strings.Split(destIPPort, ":")[0]
+				destPort := strings.Split(destIPPort, ":")[1] //то проверяем адрес назначения
+				ok, err := checkIP(subNet, destIP)
+				if !ok || err != nil { // если адрес назначения не входит в проверяемую подсеть или проверка вызвала ошибку,
+					continue // то переходим к следующей подсети
+				}
+				//если адрес добрался сюда, значит он входит в подсеть и необходимо поменять адрес назначения и источника
+				newSrcPortStr := strings.Split(srcPortStr, ":")[0] + "_REVERSED:" + destPort + "/" + strings.Split(srcPortStr, "/")[1]
+				line = fmt.Sprintf("%v %6v %v %v %v %v %v%v %v %v %v", valueArray[0], valueArray[1], destIP, newSrcPortStr, valueArray[4], valueArray[5], srcIP, srcPort, valueArray[7], valueArray[8], valueArray[9])
+
+				return line
+			}
+			return ""
+
+		}
+		return line
+
+	}
+
+	return ""
+}
+
+// Получает на вход строку в виде лога Squid по-умолчанию
+// Фильтрует от лишних записей по вхождению строк из списка в конфиге
+func (cfg *Config) removeIgnoringLine(line string) string {
+	for _, ignorItem := range cfg.IgnorList { //проходим по списку исключения,
+		if strings.Contains(line, ignorItem) { //если линия содержит хотя бы один объект из списка,
+			return "" // то мы её игнорируем и возвращаем ничего
+
+		}
+	}
+	return line
+
 }
 
 func checkIP(subnet, ip string) (bool, error) {
@@ -142,8 +168,6 @@ func checkIP(subnet, ip string) (bool, error) {
 	}
 	return false, nil
 }
-
-// func containsIP()
 
 // Convert uint to net.
 // https://groups.google.com/forum/#!topic/golang-nuts/v4eJ5HK3stI
