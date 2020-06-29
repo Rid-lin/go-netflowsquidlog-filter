@@ -2,16 +2,21 @@
 
 build: buildwothoutdebug pack
 
+all: buildwothoutdebug buildwothoutdebug_linux pack
+
 buildfordebug:
-	go build -o build/go-netflow2squid -v ./
+	go build -o build/go-netflowsquidlog-filter -v ./
 
 buildwothoutdebug:
-	go build --ldflags "-w -s" -o build/go-netflow2squid -v ./
+	go build --ldflags "-w -s" -o build/go-netflowsquidlog-filter.exe -v ./
+
+buildwothoutdebug_linux:
+	set GOOS=linux&& go build --ldflags "-w -s" -o build/go-netflowsquidlog-filter -v ./
 
 run: build
-	build/go-netflow2squid
+	build/go-netflowsquidlog-filter
 	
 .DUFAULT_GOAL := build
 
 pack:
-	upx --ultra-brute .\go-netflow2squid
+	upx --ultra-brute build\go-netflowsquidlog-filter*
