@@ -34,7 +34,7 @@ After that, you need to use any **analyzer of squid** logs.
     cd go-netflowsquidlog-filter
     make
 
-После этого нужно использовать любой **аналозатор логов Squid-а**.
+После этого нужно использовать любой **анализатор логов Squid-а**.
 
 ### Как использовать
 
