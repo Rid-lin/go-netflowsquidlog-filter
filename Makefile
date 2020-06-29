@@ -1,6 +1,6 @@
 .PHONY: build
 
-build: buildwothoutdebug pack
+build: buildwothoutdebug_linux pack
 
 all: buildwothoutdebug buildwothoutdebug_linux pack
 
