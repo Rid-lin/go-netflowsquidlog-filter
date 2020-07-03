@@ -27,7 +27,7 @@ var (
 
 func init() {
 	flag.StringVar(&configFile, "c", "go-netflowsquidlog-filter.json", "configuration file")
-	flag.StringVar(&inFile, "in", "", "Temp log file for filtering")
+	flag.StringVar(&inFile, "in", "1.log", "Temp log file for filtering")
 	// flag.StringVar(&outFile, "out", "", "Log file for further processing by the analyzer")
 	flag.Parse()
 }
@@ -36,13 +36,13 @@ func main() {
 
 	err := config.loadConfigFromFile(configFile)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err, "Config file path", configFile)
 		os.Exit(500)
 	}
 
 	file, err := os.Open(inFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(err, "IN file path", inFile)
 	}
 	defer file.Close()
 
@@ -97,15 +97,20 @@ func (cfg *Config) fullFileHandling(scanner *bufio.Scanner) error {
 // 			то данная строка исключается (возвращается пустое значение)
 
 func (cfg *Config) logFileFiltering(line string) string {
+	var destIP, destPort, srcPort string
 	valueArray := strings.Fields(line) // разбиваем на поля через пробел
 	if len(valueArray) == 0 {          // проверяем длину строки, чтобы убедиться что строка нормально распарсилась\её формат
 		return "" // если это не так то возвращаем ничего
 	}
 
 	srcIP := valueArray[2]
-	srcPortStr := valueArray[3]
+	srcPortStr := valueArray[9]
 	destIPPort := valueArray[6]
-	srcPort := strings.Split(strings.Split(srcPortStr, ":")[1], "/")[0]
+	if len(strings.Split(srcPortStr, "/")) >= 2 {
+		srcPort = strings.Split(srcPortStr, "/")[1]
+	} else {
+		srcPort = "-"
+	}
 
 	for _, subNet := range config.SubNets {
 		ok, err := checkIP(subNet, srcIP)
@@ -116,15 +121,19 @@ func (cfg *Config) logFileFiltering(line string) string {
 
 		if !ok { // если адрес не принадлежит необходимой подсети
 			if config.ProcessingDirection == "both" { // если трафик считается в оба направления,
-				destIP := strings.Split(destIPPort, ":")[0]
-				destPort := strings.Split(destIPPort, ":")[1] //то проверяем адрес назначения
+				if len(strings.Split(destIPPort, ":")) >= 2 {
+					destIP = strings.Split(destIPPort, ":")[0]
+					destPort = strings.Split(destIPPort, ":")[1] //то проверяем адрес назначения
+				} else {
+					destIP = destIPPort
+				}
 				ok, err := checkIP(subNet, destIP)
 				if !ok || err != nil { // если адрес назначения не входит в проверяемую подсеть или проверка вызвала ошибку,
 					continue // то переходим к следующей подсети
 				}
 				//если адрес добрался сюда, значит он входит в подсеть и необходимо поменять адрес назначения и источника
-				newSrcPortStr := strings.Split(srcPortStr, ":")[0] + "_REVERSED:" + destPort + "/" + strings.Split(srcPortStr, "/")[1]
-				line = fmt.Sprintf("%v %6v %v %v %v %v %v%v %v %v %v", valueArray[0], valueArray[1], destIP, newSrcPortStr, valueArray[4], valueArray[5], srcIP, srcPort, valueArray[7], valueArray[8], valueArray[9])
+				newSrcPortStr := strings.Split(valueArray[9], "/")[0] + "/" + destPort
+				line = fmt.Sprintf("%v %6v %v %v %v %v %v:%v %v %v %v", valueArray[0], valueArray[1], destIP, valueArray[3], valueArray[4], valueArray[5], srcIP, srcPort, valueArray[7], valueArray[8], newSrcPortStr)
 
 				return line
 			}
