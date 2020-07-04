@@ -23,12 +23,12 @@ type Config struct {
 var (
 	inFile, configFile string
 	config             *Config
+	scanner            *bufio.Scanner
 )
 
 func init() {
-	flag.StringVar(&configFile, "c", "go-netflowsquidlog-filter.json", "configuration file")
-	flag.StringVar(&inFile, "in", "", "Temp log file for filtering")
-	// flag.StringVar(&outFile, "out", "", "Log file for further processing by the analyzer")
+	flag.StringVar(&configFile, "c", "go-netflowsquidlog-filter.json", "Configuration file")
+	flag.StringVar(&inFile, "in", "", "Temp log file for filtering. If not specified, read standard input (Stdin)")
 	flag.Parse()
 }
 
@@ -36,17 +36,22 @@ func main() {
 
 	err := config.loadConfigFromFile(configFile)
 	if err != nil {
-		fmt.Println(err, "Config file path", configFile)
+		fmt.Println(err, "\nThe specified path to the configuration file", configFile)
 		os.Exit(500)
 	}
 
-	file, err := os.Open(inFile)
-	if err != nil {
-		log.Fatal(err, "IN file path", inFile)
-	}
-	defer file.Close()
+	if inFile == "" {
+		scanner = bufio.NewScanner(os.Stdin)
+	} else {
+		file, err := os.Open(inFile)
+		if err != nil {
+			log.Fatal(err, "\nThe specified path to the incoming file", inFile)
+		}
+		defer file.Close()
 
-	scanner := bufio.NewScanner(file)
+		scanner = bufio.NewScanner(file)
+	}
+
 	err2 := config.fullFileHandling(scanner)
 	if err2 != nil {
 		fmt.Println(err)
@@ -113,7 +118,7 @@ func (cfg *Config) logFileFiltering(line string) string {
 	}
 	if len(strings.Split(destIPPort, ":")) >= 2 {
 		destIP = strings.Split(destIPPort, ":")[0]
-		destPort = strings.Split(destIPPort, ":")[1] //то проверяем адрес назначения
+		destPort = strings.Split(destIPPort, ":")[1]
 	} else {
 		destIP = destIPPort
 	}
@@ -143,7 +148,7 @@ func (cfg *Config) checkForAllSubNet(ip string) bool {
 	for _, subNet := range config.SubNets {
 		ok, err := checkIP(subNet, ip)
 		if err != nil { // если ошибка, то следующая строка
-			return false //  то возвращаем ничего
+			return false
 
 		}
 		if ok {
