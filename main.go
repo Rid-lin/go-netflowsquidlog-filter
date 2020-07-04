@@ -123,7 +123,7 @@ func (cfg *Config) logFileFiltering(line string) string {
 	if !ok { // если адрес не принадлежит необходимой подсети
 		if config.ProcessingDirection == "both" { // если трафик считается в оба направления,
 			if ok2 { // если адрес назначения не входит указанные подсети
-				newSrcPortStr := strings.Split(valueArray[9], "/")[0] + "/" + destPort
+				newSrcPortStr := strings.Split(valueArray[9], "/")[0] + "_inverse/" + destPort
 				line = fmt.Sprintf("%v %6v %v %v %v %v %v:%v %v %v %v", valueArray[0], valueArray[1], destIP, valueArray[3], valueArray[4], valueArray[5], srcIP, srcPort, valueArray[7], valueArray[8], newSrcPortStr)
 
 				return line
