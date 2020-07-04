@@ -111,40 +111,47 @@ func (cfg *Config) logFileFiltering(line string) string {
 	} else {
 		srcPort = "-"
 	}
+	if len(strings.Split(destIPPort, ":")) >= 2 {
+		destIP = strings.Split(destIPPort, ":")[0]
+		destPort = strings.Split(destIPPort, ":")[1] //то проверяем адрес назначения
+	} else {
+		destIP = destIPPort
+	}
+	ok := config.checkForAllSubNet(srcIP)
+	ok2 := config.checkForAllSubNet(destIP)
 
-	for _, subNet := range config.SubNets {
-		ok, err := checkIP(subNet, srcIP)
-		if err != nil { // если ошибка, то следующая строка
-			return "" //  то возвращаем ничего
-
-		}
-
-		if !ok { // если адрес не принадлежит необходимой подсети
-			if config.ProcessingDirection == "both" { // если трафик считается в оба направления,
-				if len(strings.Split(destIPPort, ":")) >= 2 {
-					destIP = strings.Split(destIPPort, ":")[0]
-					destPort = strings.Split(destIPPort, ":")[1] //то проверяем адрес назначения
-				} else {
-					destIP = destIPPort
-				}
-				ok, err := checkIP(subNet, destIP)
-				if !ok || err != nil { // если адрес назначения не входит в проверяемую подсеть или проверка вызвала ошибку,
-					continue // то переходим к следующей подсети
-				}
-				//если адрес добрался сюда, значит он входит в подсеть и необходимо поменять адрес назначения и источника
-				newSrcPortStr := strings.Split(valueArray[9], "/")[0] + "/" + destPort
+	if !ok { // если адрес не принадлежит необходимой подсети
+		if config.ProcessingDirection == "both" { // если трафик считается в оба направления,
+			if ok2 { // если адрес назначения не входит указанные подсети
+				newSrcPortStr := strings.Split(valueArray[9], "/")[0] + "_inverse/" + destPort
 				line = fmt.Sprintf("%v %6v %v %v %v %v %v:%v %v %v %v", valueArray[0], valueArray[1], destIP, valueArray[3], valueArray[4], valueArray[5], srcIP, srcPort, valueArray[7], valueArray[8], newSrcPortStr)
 
 				return line
 			}
-			return ""
-
 		}
+		return ""
+
+	} else if !ok2 {
 		return line
 
 	}
 
 	return ""
+}
+
+func (cfg *Config) checkForAllSubNet(ip string) bool {
+	for _, subNet := range config.SubNets {
+		ok, err := checkIP(subNet, ip)
+		if err != nil { // если ошибка, то следующая строка
+			return false //  то возвращаем ничего
+
+		}
+		if ok {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Получает на вход строку в виде лога Squid по-умолчанию
